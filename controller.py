@@ -1,4 +1,5 @@
 from embeddings import EmbeddingGenerator
+from faiss_storage import FaissStorage
 from memgraph_storage import MemgraphStorage
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -10,6 +11,14 @@ import re
 from typing import List
 
 load_dotenv()
+
+def get_ks_storage():
+    storage = os.getenv("KS_STORAGE", "").lower()
+    if storage == "memgraph":
+        return MemgraphStorage()
+    if storage == "faiss":
+        return FaissStorage()
+    raise Exception("Unknown storage!")
 
 
 def sanitize_category(category: str) -> str:
@@ -27,7 +36,7 @@ def extract_json(text: str) -> str:
 
 class StorageController:
     def __init__(self):
-        self._storage = MemgraphStorage()
+        self._storage = get_ks_storage()
         self._embedding_generator = EmbeddingGenerator()
         self._wikipedia_processor = WikipediaProcessor()
         self._wikipedi_detailed_processor = DetailedWikipediaProcessor()
@@ -38,22 +47,24 @@ class StorageController:
     def ingest_wikipedia(
         self, category, lang_prefix, mode="replace", method="quick", section_filter=None
     ):
+        category = sanitize_category(category)
         if method == "quick":
             paragraphs, embeddings = (
                 self._wikipedia_processor.process_wikipedia_documents(
-                    category, lang_prefix, mode
+                    category, lang_prefix
                 )
             )
-            return self._storage.ingest_paragraphs(
-                category, paragraphs, embeddings, lang_prefix, mode
+        else:
+        # Else detailed
+            paragraphs, embeddings = (
+                self._wikipedi_detailed_processor.process_detailed_sections(
+                    category, lang_prefix, section_filter
+                )
             )
 
-        # Else detailed
-        paragraphs, embeddings = (
-            self._wikipedi_detailed_processor.process_detailed_sections(
-                category, lang_prefix, mode, section_filter
-            )
-        )
+        if len(paragraphs) == 0:
+            return 0
+
         return self._storage.ingest_paragraphs(
             category, paragraphs, embeddings, lang_prefix, mode
         )
@@ -75,7 +86,7 @@ class StorageController:
 class LLMController:
     def __init__(self):
         self._client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        self._storage = MemgraphStorage()
+        self._storage = get_ks_storage()
 
     def answer_question_based_on_excerpts(
         self, question: str, context: List[str], lang_prefix: str

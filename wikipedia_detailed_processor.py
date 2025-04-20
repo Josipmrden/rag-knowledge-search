@@ -7,6 +7,7 @@ class DetailedWikipediaProcessor:
         self._wiki = wikipediaapi.Wikipedia(
             language="en",
             user_agent='user_agent="WikiReaderBot/1.0 (mrdjen.josip@gmail.com)',
+            extract_format=wikipediaapi.ExtractFormat.WIKI
         )
         self._embeddings_generator = EmbeddingGenerator()
 
@@ -30,6 +31,7 @@ class DetailedWikipediaProcessor:
         self._wiki = wikipediaapi.Wikipedia(
             language="en",
             user_agent='user_agent="WikiReaderBot/1.0 (mrdjen.josip@gmail.com)',
+            extract_format=wikipediaapi.ExtractFormat.WIKI
         )
         page = self._wiki.page(category)
 
