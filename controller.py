@@ -1,5 +1,6 @@
 from embeddings import EmbeddingGenerator
 from faiss_storage import FaissStorage
+
 # from memgraph_storage import MemgraphStorage
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -11,6 +12,7 @@ import re
 from typing import List
 
 load_dotenv()
+
 
 def get_ks_storage():
     storage = os.getenv("KS_STORAGE", "").lower()
@@ -41,11 +43,21 @@ class StorageController:
         self._wikipedia_processor = WikipediaProcessor()
         self._wikipedi_detailed_processor = DetailedWikipediaProcessor()
 
-    def get_all_categories(self) -> List[str]:
-        return self._storage.get_all_categories()
+    def initialize_user(self, user_id: str):
+        self._storage.initialize_user(user_id)
+
+    def get_all_categories(self, user_id: str) -> List[str]:
+        return self._storage.get_all_categories(user_id)
 
     def ingest_wikipedia(
-        self, category, save_as_category, lang_prefix, mode="replace", method="quick", section_filter=None
+        self,
+        user_id,
+        category,
+        save_as_category,
+        lang_prefix,
+        mode="replace",
+        method="quick",
+        section_filter=None,
     ):
         if len(category) == 0:
             return 0
@@ -54,7 +66,7 @@ class StorageController:
         if len(save_as_category) == 0:
             save_as_category = category
         save_as_category = sanitize_category(save_as_category)
-        
+
         if method == "quick":
             paragraphs, embeddings = (
                 self._wikipedia_processor.process_wikipedia_documents(
@@ -62,7 +74,7 @@ class StorageController:
                 )
             )
         else:
-        # Else detailed
+            # Else detailed
             paragraphs, embeddings = (
                 self._wikipedi_detailed_processor.process_detailed_sections(
                     category, lang_prefix, section_filter
@@ -73,36 +85,43 @@ class StorageController:
             return 0
 
         return self._storage.ingest_paragraphs(
-            save_as_category, paragraphs, embeddings, lang_prefix, mode
+            user_id, save_as_category, paragraphs, embeddings, lang_prefix, mode
         )
 
-    def get_similar_documents(self, category: str, question: str, n: int) -> List[str]:
+    def get_similar_documents(
+        self, user_id: str, category: str, question: str, n: int
+    ) -> List[str]:
         category = sanitize_category(category)
         query_vector = self._embedding_generator.get_question_embedding(question)
 
-        results = self._storage.get_similar_documents(category, query_vector, n)
+        results = self._storage.get_similar_documents(
+            user_id, category, query_vector, n
+        )
 
         context = [result["content"] for result in results]
         return context
 
-    def get_paragraph_ids(self, category: str) -> List[int]:
+    def get_paragraph_ids(self, user_id: str, category: str) -> List[int]:
         category = sanitize_category(category)
-        return self._storage.get_paragraph_ids(category)
-    
-    def get_all_paragraphs_from_category(self, category: str):
-        category = sanitize_category(category)
-        return self._storage.get_all_paragraphs(category)
+        return self._storage.get_paragraph_ids(user_id, category)
 
-    
-    def ingest_custom_text(self, category, paragraph, lang_prefix="custom", mode="append"):
+    def get_all_paragraphs_from_category(self, user_id: str, category: str):
+        category = sanitize_category(category)
+        return self._storage.get_all_paragraphs(user_id, category)
+
+    def ingest_custom_text(
+        self, user_id: str, category, paragraph, lang_prefix="custom", mode="append"
+    ):
         category = sanitize_category(category)
         paragraphs = [paragraph.strip()]
         embeddings = self._embedding_generator.get_embeddings(paragraphs)
-        return self._storage.ingest_paragraphs(category, paragraphs, embeddings, lang_prefix, mode)
-    
-    def delete_paragraph(self, category: str, paragraph_id: str):
+        return self._storage.ingest_paragraphs(
+            user_id, category, paragraphs, embeddings, lang_prefix, mode
+        )
+
+    def delete_paragraph(self, user_id: str, category: str, paragraph_id: str):
         category = sanitize_category(category)
-        return self._storage.delete_paragraph(category, paragraph_id)
+        return self._storage.delete_paragraph(user_id, category, paragraph_id)
 
 
 class LLMController:
@@ -111,7 +130,7 @@ class LLMController:
         self._storage = get_ks_storage()
 
     def answer_question_based_on_excerpts(
-        self, question: str, context: List[str], lang_prefix: str
+        self, user_id: str, question: str, context: List[str], lang_prefix: str
     ) -> str:
         context_text = "\n\n".join(context)
 
@@ -146,6 +165,7 @@ class LLMController:
 
     def generate_quiz(
         self,
+        user_id: str,
         category: str,
         number_of_questions: int,
         lang_prefix: str,

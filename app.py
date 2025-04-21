@@ -1,8 +1,14 @@
 import streamlit as st
+import uuid
 from controller import StorageController, LLMController
+
+DEFAULT_ID_KEY = "user_id"
+current_user_id = st.query_params.get(DEFAULT_ID_KEY, str(uuid.uuid4()))
+st.query_params.update({DEFAULT_ID_KEY: current_user_id})
 
 controller = StorageController()
 llm_controller = LLMController()
+controller.initialize_user(current_user_id)
 
 # --- Sidebar Navigation ---
 st.sidebar.title("📂 Navigation")
@@ -16,6 +22,15 @@ page = st.sidebar.radio(
         "Generate Pub Quiz",
     ],
 )
+
+# Sidebar display + option to override
+st.sidebar.markdown("### 🔑 Identity")
+user_id = st.sidebar.text_input("Your User ID", value=current_user_id)
+if st.sidebar.button("Use this ID"):
+    # Update the URL with the new user ID (emulates cookie/session behavior)
+    st.query_params.update({DEFAULT_ID_KEY: user_id})
+    controller.initialize_user(user_id)
+    st.rerun()
 
 
 # --- Shared helpers ---
@@ -58,6 +73,7 @@ if page == "Ingest Wikipedia":
                 method = "detailed" if has_section_filter else "quick"
                 section = section_filter
                 count = controller.ingest_wikipedia(
+                    user_id,
                     category,
                     save_as_category,
                     lang_prefix,
@@ -81,7 +97,7 @@ if page == "Ingest Wikipedia":
 elif page == "Ingest by Yourself":
     st.title("✍️ Ingest a Custom Paragraph")
 
-    available_categories = controller.get_all_categories()
+    available_categories = controller.get_all_categories(user_id)
 
     with st.form("custom_ingest_form"):
         st.markdown("#### Paste your content")
@@ -109,6 +125,7 @@ elif page == "Ingest by Yourself":
                 else:
                     with st.spinner("Embedding and saving..."):
                         count = controller.ingest_custom_text(
+                            user_id,
                             target_label,
                             user_paragraph,
                             lang_prefix=lang_prefix,
@@ -122,7 +139,7 @@ elif page == "Ingest by Yourself":
 elif page == "Dataset Exploration":
     st.title("📊 Explore Your Ingested Dataset")
 
-    available_categories = controller.get_all_categories()
+    available_categories = controller.get_all_categories(user_id)
     if not available_categories:
         st.info("ℹ️ No datasets found. Please ingest something first.")
     else:
@@ -132,7 +149,7 @@ elif page == "Dataset Exploration":
         if st.button("🔍 Retrieve Dataset"):
             with st.spinner(f"Retrieving paragraphs from '{selected_category}'..."):
                 paragraphs = controller.get_all_paragraphs_from_category(
-                    selected_category
+                    user_id, selected_category
                 )
                 if not paragraphs:
                     st.warning("No paragraphs found for the selected category.")
@@ -149,7 +166,7 @@ elif page == "Dataset Exploration":
 elif page == "Chat With Your Knowledge":
     st.title("💬 Chat with Your Knowledge")
 
-    available_categories = controller.get_all_categories()
+    available_categories = controller.get_all_categories(user_id)
     if not available_categories:
         st.info("ℹ️ No categories ingested yet. Please ingest some data first.")
     else:
@@ -176,12 +193,14 @@ elif page == "Chat With Your Knowledge":
 
             # Semantic search
             with st.spinner("🔍 Retrieving relevant knowledge..."):
-                context = controller.get_similar_documents(category, user_input, 10)
+                context = controller.get_similar_documents(
+                    user_id, category, user_input, 10
+                )
 
             # Generate answer
             with st.spinner("🧠 GPT-4o is thinking..."):
                 answer = llm_controller.answer_question_based_on_excerpts(
-                    user_input, context, lang_prefix
+                    user_id, user_input, context, lang_prefix
                 )
 
             # Display bot response
@@ -203,7 +222,7 @@ elif page == "Chat With Your Knowledge":
 elif page == "Generate Pub Quiz":
     st.title("🧠 Generate a Pub Quiz")
 
-    available_categories = controller.get_all_categories()
+    available_categories = controller.get_all_categories(user_id)
     if not available_categories:
         st.info("ℹ️ No categories ingested yet. Please ingest a some data first.")
     else:
@@ -219,7 +238,11 @@ elif page == "Generate Pub Quiz":
         if st.button("🎲 Generate Pub Quiz"):
             with st.spinner("Selecting paragraphs and generating quiz..."):
                 quiz = llm_controller.generate_quiz(
-                    category, number_of_questions, lang_prefix, better_explanation
+                    user_id,
+                    category,
+                    number_of_questions,
+                    lang_prefix,
+                    better_explanation,
                 )
                 if quiz is None:
                     st.warning("Unable to generate quiz!")
