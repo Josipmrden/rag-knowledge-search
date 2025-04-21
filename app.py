@@ -125,8 +125,8 @@ elif page == "Unesi podatke sam":
     available_categories = controller.get_all_categories(user_id)
 
     with st.form("custom_ingest_form"):
-        st.markdown(
-            "#### Dodajte vaše podatke. Za jedan paragraf, samo ga kopirajte u okvir. Za više paragrafa, osigurajte da su odvojeni bar jednom praznom crtom."
+        st.info(
+            "Dodajte vaše podatke. Za jedan paragraf, samo ga kopirajte u okvir. Za više paragrafa, osigurajte da su odvojeni bar jednom praznom crtom."
         )
         user_paragraph = st.text_area("Text to ingest", height=300)
 
@@ -201,8 +201,8 @@ elif page == "Pregledaj podatke":
 # ==============================
 elif page == "Izvezi podatke":
     st.title("📦 Izvezi podatke")
-    st.markdown(
-        "#### Aplikacija je trenutno u beta-verziji. Zbog toga sačuvanje podataka u slučaju nepredviđenih greški nije garantirano. Zbog toga, svoje podatke možete izvesti i ponovo uvesti kad god hoćete."
+    st.info(
+        "Aplikacija je trenutno u beta-verziji. Zbog toga sačuvanje podataka u slučaju nepredviđenih greški nije garantirano. Zbog toga, svoje podatke možete izvesti i ponovo uvesti kad god hoćete."
     )
 
     available_categories = controller.get_all_categories(user_id)
@@ -239,7 +239,8 @@ elif page == "ChatBot":
         st.info("ℹ️ Nismo pronašli kategorije. Prvo unesite podatke.")
     else:
         category = st.selectbox(
-            "Odaberi bazu znanja s kojom želite razgovarati:", options=available_categories
+            "Odaberi bazu znanja s kojom želite razgovarati:",
+            options=available_categories,
         )
 
         # Initialize chat history in session
