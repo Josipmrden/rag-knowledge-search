@@ -7,9 +7,14 @@ current_user_id = st.query_params.get(DEFAULT_ID_KEY, None)
 if not current_user_id:
     current_user_id = st.query_params.get(DEFAULT_ID_KEY, str(uuid.uuid4()))
     st.query_params.update({DEFAULT_ID_KEY: current_user_id})
-    with st.expander("ℹ️ Important Info", expanded=True):
+    with st.expander("ℹ️ Važna obavijest", expanded=True):
         st.markdown(
-            "You have been granted a random ID. This ID does not contain any data. Please add your already present identity in the sidebar if you have one!"
+            f"""
+                    Dodijeljen vam je nasumični identitet: {current_user_id}. 
+                    Ako ste prvi put na ovoj stranici, sačuvajte ovaj identitet.
+                    Pristup stranici idući put možete napraviti koristeći link https://chatwithyourknowledge.streamlit.app?user_id={current_user_id}.
+                    Bez identiteta, uvijek će vam se nanovo generirati novi identitet bez sačuvanih podataka.
+                    """
         )
 
 
@@ -29,23 +34,23 @@ llm_controller = get_llm_controller()
 controller.initialize_user(current_user_id)
 
 # --- Sidebar Navigation ---
-st.sidebar.title("📂 Navigation")
+st.sidebar.title("📂 Moje znanje")
 page = st.sidebar.radio(
-    "Go to",
+    "Idi na",
     [
-        "Ingest Wikipedia",
-        "Ingest by Yourself",
-        "Dataset Exploration",
-        "Export Dataset",
-        "Chat With Your Knowledge",
-        "Generate Pub Quiz",
+        "Unesi podatke s Wikipedije",
+        "Unesi podatke sam",
+        "Pregledaj podatke",
+        "Izvezi podatke",
+        "ChatBot",
+        "Generiraj kviz",
     ],
 )
 
 # Sidebar display + option to override
-st.sidebar.markdown("### 🔑 Identity")
-user_id = st.sidebar.text_input("Your User ID", value=current_user_id)
-if st.sidebar.button("Use this ID"):
+st.sidebar.markdown("### 🔑 Identitet")
+user_id = st.sidebar.text_input("Vaš identitet", value=current_user_id)
+if st.sidebar.button("Koristi ovaj identitet"):
     # Update the URL with the new user ID (emulates cookie/session behavior)
     st.query_params.update({DEFAULT_ID_KEY: user_id})
     controller.initialize_user(user_id)
@@ -59,33 +64,34 @@ def difficulty_flag(level: str) -> str:
 
 
 # --- Shared language prefix input ---
-st.sidebar.markdown("### Language Settings")
-lang_prefix = st.sidebar.text_input("Optional language prefix", value="en")
+st.sidebar.markdown("### Postavke jezika (Wikipedija)")
+lang_prefix = st.sidebar.text_input("Opcionalni prefiks za jezik", value="en")
 
 # ==============================
-# 📥 Ingest Wikipedia
+# 📥 Unesi podatke s Wikipedije
 # ==============================
-if page == "Ingest Wikipedia":
-    st.title("📥 Ingest Wikipedia Page into storage")
+if page == "Unesi podatke s Wikipedije":
+    st.title("📥 Unesi podatke s Wikipedije")
 
     with st.form("ingest_form"):
-        category = st.text_input("Enter Wikipedia page title", value="")
+        category = st.text_input("Unesi naslov stranice na Wikipediji", value="")
         save_as_category = st.text_input(
-            "Save as category (empty will save with same name)", value=""
+            "Spremi s nazivom kategorije (ostavljanje ovog polja kao prazno će spremiti s istim imenom kao naslov)",
+            value="",
         )
         ingestion_mode = st.radio(
-            "Ingestion mode", options=["Ingest from scratch", "Update dataset"], index=0
+            "Način uveza",
+            options=["Uvezi ispočetka", "Dodaj na postojeće podatke"],
+            index=0,
         )
         section_filter = st.text_input(
-            "Target section (e.g. Plot, Reception, Cast)", value=""
+            "Željena sekcija (e.g. Plot, Reception, Cast)", value=""
         )
         submitted = st.form_submit_button("Ingest")
 
         if submitted:
             with st.spinner("🔄 Ingesting and creating vector index..."):
-                mode = (
-                    "replace" if ingestion_mode == "Ingest from scratch" else "append"
-                )
+                mode = "replace" if ingestion_mode == "Uvezi ispočetka" else "append"
                 has_section_filter = (
                     section_filter is not None and len(section_filter) > 0
                 )
@@ -101,56 +107,56 @@ if page == "Ingest Wikipedia":
                     section_filter=section_filter if has_section_filter else None,
                 )
                 if count is not None:
-                    verb = "Replaced" if mode == "replace" else "Appended"
+                    verb = "Zamijenjeno" if mode == "replace" else "Dodano"
                     st.success(
-                        f"✅ {verb} {count} paragraphs from '{category}' into storage."
+                        f"✅ {verb} {count} paragrafa iz '{category}' u spremnik."
                     )
                 else:
                     st.success(
-                        f"✅ Paragraphs from '{category}' already exist in storage!"
+                        f"✅ Paragrafi u kategoriji '{category}' već postoje u spremniku!"
                     )
 
 # ==============================
-# ✍️ Ingest by Yourself
+# ✍️ Unesi podatke sam
 # ==============================
-elif page == "Ingest by Yourself":
-    st.title("✍️ Ingest a Custom Paragraph")
+elif page == "Unesi podatke sam":
+    st.title("✍️ Unesi podatke sam")
 
     available_categories = controller.get_all_categories(user_id)
 
     with st.form("custom_ingest_form"):
-        st.markdown("#### Paste your content")
+        st.markdown(
+            "#### Dodajte vaše podatke. Za jedan paragraf, samo ga kopirajte u okvir. Za više paragrafa, osigurajte da su odvojeni bar jednom praznom crtom."
+        )
         user_paragraph = st.text_area("Text to ingest", height=300)
 
-        st.markdown("#### Choose where to save it")
+        st.markdown("#### Odaberi pod kojom labelom ćete spremiti podatke")
         existing_label = st.selectbox(
-            "Save to existing label:", options=available_categories + [""]
+            "Spremi u već postojeću kategoriju:", options=available_categories
         )
-        new_label = st.text_input(
-            "Or enter a new label (will override above if filled):"
-        )
+        new_label = st.text_input("Ili unesi novu kategoriju?")
         ingestion_mode = st.radio(
-            "Ingestion mode", options=["Ingest from scratch", "Update dataset"], index=0
+            "Ingestion mode",
+            options=["Uvezi ispočetka", "Dodaj na postojeće podatke"],
+            index=0,
         )
 
-        submitted = st.form_submit_button("📥 Ingest Text")
+        submitted = st.form_submit_button("📥 Unesi")
 
         if submitted:
             if not user_paragraph.strip():
-                st.warning("⚠️ Please paste some text.")
+                st.warning("⚠️ Nema podataka u tekstu")
             else:
                 target_label = (
                     new_label.strip() if new_label.strip() else existing_label
                 )
                 if not target_label:
-                    st.warning("⚠️ Please select or enter a category name.")
+                    st.warning("⚠️ Unesite naziv kategorije.")
                 else:
                     mode = (
-                        "replace"
-                        if ingestion_mode == "Ingest from scratch"
-                        else "append"
+                        "replace" if ingestion_mode == "Uvezi ispočetka" else "append"
                     )
-                    with st.spinner("Embedding and saving..."):
+                    with st.spinner("Kodiranje i spremanje..."):
                         count = controller.ingest_custom_text(
                             user_id,
                             target_label,
@@ -158,56 +164,61 @@ elif page == "Ingest by Yourself":
                             lang_prefix=lang_prefix,
                             mode=mode,
                         )
-                        st.success(
-                            f"✅ Ingested {count} paragraph into '{target_label}'."
-                        )
+                        st.success(f"✅ Uneseno {count} paragrafa u '{target_label}'.")
 
 # ==============================
-# 📊 Dataset Exploration
+# 📊 Pregledaj podatke
 # ==============================
-elif page == "Dataset Exploration":
-    st.title("📊 Explore Your Ingested Dataset")
+elif page == "Pregledaj podatke":
+    st.title("📊 Pregledaj unešene podatke")
 
     available_categories = controller.get_all_categories(user_id)
     if not available_categories:
-        st.info("ℹ️ No datasets found. Please ingest something first.")
+        st.info(
+            "ℹ️ Nismo pronašli prije spremljene podatke. Provjerite svoj identitet, ili unesite nove podatke."
+        )
     else:
         selected_category = st.selectbox(
-            "Select a category to explore:", options=available_categories
+            "Biraj između kategorija:", options=available_categories
         )
-        if st.button("🔍 Retrieve Dataset"):
-            with st.spinner(f"Retrieving paragraphs from '{selected_category}'..."):
+        if st.button("🔍 Dohvati podatke"):
+            with st.spinner(f"Dohvaćam podatke iz '{selected_category}'..."):
                 paragraphs = controller.get_all_paragraphs_from_category(
                     user_id, selected_category
                 )
                 if not paragraphs:
-                    st.warning("No paragraphs found for the selected category.")
+                    st.warning(
+                        f"Nismo pronašli podatke za kategoriju '{selected_category}'."
+                    )
                 else:
-                    st.success(f"✅ Found {len(paragraphs)} paragraphs.")
+                    st.success(f"✅ Pronađeno {len(paragraphs)} paragrafa.")
                     for i, item in enumerate(paragraphs):
-                        with st.expander(f"📄 Paragraph {i+1}", expanded=False):
+                        with st.expander(f"📄 Paragraf {i+1}", expanded=False):
                             st.markdown(item["content"])
 
 # ==============================
-# 📦 Export Dataset
+# 📦 Izvezi podatke
 # ==============================
-elif page == "Export Dataset":
-    st.title("📦 Export a Dataset")
+elif page == "Izvezi podatke":
+    st.title("📦 Izvezi podatke")
+    st.markdown(
+        "#### Aplikacija je trenutno u beta-verziji. Zbog toga sačuvanje podataka u slučaju nepredviđenih greški nije garantirano. Zbog toga, svoje podatke možete izvesti i ponovo uvesti kad god hoćete."
+    )
 
     available_categories = controller.get_all_categories(user_id)
     if not available_categories:
-        st.info("ℹ️ No categories ingested yet. Please ingest something first.")
+        st.info("ℹ️ Nismo pronašli kategorije. Prvo unesite podatke.")
     else:
         selected_category = st.selectbox(
-            "Select a category to export:", options=available_categories
+            "Odaberi kategoriju za izvoz:", options=available_categories
         )
-        if st.button("📤 Export as .txt file"):
-            with st.spinner(f"Exporting paragraphs from '{selected_category}'..."):
+        if st.button("📤 Izvezi kao .txt datoteku"):
+            with st.spinner(f"Izvoz paragrafa iz '{selected_category}'..."):
                 paragraphs = controller.get_all_paragraphs_from_category(
                     user_id, selected_category
                 )
                 if not paragraphs:
-                    st.warning("No paragraphs found in the selected category.")
+                    st.warning("Nismo pronašli paragrafe u ovoj kategoriji.")
                 else:
                     joined_text = "\n\n".join(p["content"] for p in paragraphs)
                     st.download_button(
@@ -220,15 +231,15 @@ elif page == "Export Dataset":
 # ==============================
 # 💬 Chat With Your Knowledge (Chatbot)
 # ==============================
-elif page == "Chat With Your Knowledge":
-    st.title("💬 Chat with Your Knowledge")
+elif page == "ChatBot":
+    st.title("💬 Tvoj Personalizirani Chatbot")
 
     available_categories = controller.get_all_categories(user_id)
     if not available_categories:
-        st.info("ℹ️ No categories ingested yet. Please ingest some data first.")
+        st.info("ℹ️ Nismo pronašli kategorije. Prvo unesite podatke.")
     else:
         category = st.selectbox(
-            "Select a page to chat with:", options=available_categories
+            "Odaberi bazu znanja s kojom želite razgovarati:", options=available_categories
         )
 
         # Initialize chat history in session
@@ -241,7 +252,7 @@ elif page == "Chat With Your Knowledge":
                 st.markdown(msg["content"])
 
         # Chat input box
-        user_input = st.chat_input("Ask a question about the selected page...")
+        user_input = st.chat_input("Postavi pitanje ovoj bazi znanja...")
         if user_input:
             st.chat_message("user").markdown(user_input)
             st.session_state.chat_history.append(
@@ -249,13 +260,13 @@ elif page == "Chat With Your Knowledge":
             )
 
             # Semantic search
-            with st.spinner("🔍 Retrieving relevant knowledge..."):
+            with st.spinner("🔍 Dohvaćanje relevantnog znanja..."):
                 context = controller.get_similar_documents(
                     user_id, category, user_input, 10
                 )
 
             # Generate answer
-            with st.spinner("🧠 GPT-4o is thinking..."):
+            with st.spinner("🧠 GPT-4o misli..."):
                 answer = llm_controller.answer_question_based_on_excerpts(
                     user_id, user_input, context, lang_prefix
                 )
@@ -267,33 +278,33 @@ elif page == "Chat With Your Knowledge":
             )
 
             # Optional: display excerpts in a toggle box
-            with st.expander("📚 View source excerpts"):
+            with st.expander("📚 Pogledaj izvore"):
                 for i, excerpt in enumerate(context):
                     st.markdown(f"**Excerpt {i+1}:**")
                     st.markdown(excerpt)
 
 
 # ==============================
-# 🧠 Generate Pub Quiz
+# 🧠 Generiraj kviz
 # ==============================
-elif page == "Generate Pub Quiz":
-    st.title("🧠 Generate a Pub Quiz")
+elif page == "Generiraj kviz":
+    st.title("🧠 Generiraj kviz iz svoje baze znanja")
 
     available_categories = controller.get_all_categories(user_id)
     if not available_categories:
-        st.info("ℹ️ No categories ingested yet. Please ingest a some data first.")
+        st.info("ℹ️ Nismo pronašli kategorije. Prvo unesite podatke.")
     else:
         category = st.selectbox("Select a page:", options=available_categories)
         number_of_questions = st.number_input(
-            "Number of questions", min_value=1, max_value=50, value=5, step=1
+            "Broj pitanja", min_value=1, max_value=50, value=5, step=1
         )
         better_explanation = st.text_input(
-            "What kind of questions would you like to focus on?",
+            "Na koji način bi htjeli da se GPT fokusira na pitanje (na engleskom) ?",
             value="No specific kind.",
         )
 
         if st.button("🎲 Generate Pub Quiz"):
-            with st.spinner("Selecting paragraphs and generating quiz..."):
+            with st.spinner("Odabir paragrafa i generiranje pub kviza..."):
                 quiz = llm_controller.generate_quiz(
                     user_id,
                     category,
@@ -302,14 +313,14 @@ elif page == "Generate Pub Quiz":
                     better_explanation,
                 )
                 if quiz is None:
-                    st.warning("Unable to generate quiz!")
+                    st.warning("Nismo uspjeli generirati kviz!")
                 else:
                     for i, qa in enumerate(quiz, 1):
                         st.markdown(
                             f"**{difficulty_flag(qa['difficulty'])} Q{i}:** {qa['question']}"
                         )
-                        with st.expander("Show Answer", expanded=True):
+                        with st.expander("Pogledaj odgovor", expanded=True):
                             st.markdown(f"**A{i}:** {qa['answer']}")
-                        with st.expander("Show Explanation", expanded=True):
+                        with st.expander("Pogledaj objašnjenje", expanded=True):
                             st.markdown(f"**E{i}:** {qa['explanation']}")
                         st.markdown("---")
