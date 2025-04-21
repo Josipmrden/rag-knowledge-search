@@ -1,6 +1,6 @@
 from embeddings import EmbeddingGenerator
 from faiss_storage import FaissStorage
-from memgraph_storage import MemgraphStorage
+# from memgraph_storage import MemgraphStorage
 from dotenv import load_dotenv
 from openai import OpenAI
 from wikipedia_processor import WikipediaProcessor
@@ -14,8 +14,8 @@ load_dotenv()
 
 def get_ks_storage():
     storage = os.getenv("KS_STORAGE", "").lower()
-    if storage == "memgraph":
-        return MemgraphStorage()
+    # if storage == "memgraph":
+    #     return MemgraphStorage()
     if storage == "faiss":
         return FaissStorage()
     return FaissStorage()

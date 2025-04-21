@@ -32,7 +32,7 @@ lang_prefix = st.sidebar.text_input("Optional language prefix", value="en")
 # 📥 Ingest Wikipedia
 # ==============================
 if page == "Ingest Wikipedia":
-    st.title("📥 Ingest Wikipedia Page into Memgraph")
+    st.title("📥 Ingest Wikipedia Page into storage")
 
     with st.form("ingest_form"):
         category = st.text_input("Enter Wikipedia page title", value="")
