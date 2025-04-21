@@ -17,6 +17,7 @@ class FaissStorage(Storage):
         print("Files in working dir:", os.listdir("."))
         print("Files in local_model/:", os.listdir("local_model"))
         # self._model = SentenceTransformer("all-mpnet-base-v2", device="cpu")
+        # self._model = SentenceTransformer("all-MiniLM-L6-v2", device="cpu")
         self._model = SentenceTransformer("local_model/", device="cpu")
 
     def _get_index_path(self, category):
