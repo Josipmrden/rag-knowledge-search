@@ -8,7 +8,13 @@ llm_controller = LLMController()
 st.sidebar.title("📂 Navigation")
 page = st.sidebar.radio(
     "Go to",
-    ["Ingest Wikipedia", "Ingest by Yourself", "Dataset Exploration", "Semantic Search", "Generate Pub Quiz"],
+    [
+        "Ingest Wikipedia",
+        "Ingest by Yourself",
+        "Dataset Exploration",
+        "Chat With Your Knowledge",
+        "Generate Pub Quiz",
+    ],
 )
 
 
@@ -68,7 +74,7 @@ if page == "Ingest Wikipedia":
                     st.success(
                         f"✅ Paragraphs from '{category}' already exist in storage!"
                     )
-                    
+
 # ==============================
 # ✍️ Ingest by Yourself
 # ==============================
@@ -82,8 +88,12 @@ elif page == "Ingest by Yourself":
         user_paragraph = st.text_area("Text to ingest", height=300)
 
         st.markdown("#### Choose where to save it")
-        existing_label = st.selectbox("Save to existing label:", options=available_categories + [""])
-        new_label = st.text_input("Or enter a new label (will override above if filled):")
+        existing_label = st.selectbox(
+            "Save to existing label:", options=available_categories + [""]
+        )
+        new_label = st.text_input(
+            "Or enter a new label (will override above if filled):"
+        )
 
         submitted = st.form_submit_button("📥 Ingest Text")
 
@@ -91,7 +101,9 @@ elif page == "Ingest by Yourself":
             if not user_paragraph.strip():
                 st.warning("⚠️ Please paste some text.")
             else:
-                target_label = new_label.strip() if new_label.strip() else existing_label
+                target_label = (
+                    new_label.strip() if new_label.strip() else existing_label
+                )
                 if not target_label:
                     st.warning("⚠️ Please select or enter a category name.")
                 else:
@@ -100,10 +112,10 @@ elif page == "Ingest by Yourself":
                             target_label,
                             user_paragraph,
                             lang_prefix=lang_prefix,
-                            mode="append"
+                            mode="append",
                         )
                         st.success(f"✅ Ingested 1 paragraph into '{target_label}'.")
-                        
+
 # ==============================
 # 📊 Dataset Exploration
 # ==============================
@@ -114,10 +126,14 @@ elif page == "Dataset Exploration":
     if not available_categories:
         st.info("ℹ️ No datasets found. Please ingest something first.")
     else:
-        selected_category = st.selectbox("Select a category to explore:", options=available_categories)
+        selected_category = st.selectbox(
+            "Select a category to explore:", options=available_categories
+        )
         if st.button("🔍 Retrieve Dataset"):
             with st.spinner(f"Retrieving paragraphs from '{selected_category}'..."):
-                paragraphs = controller.get_all_paragraphs_from_category(selected_category)
+                paragraphs = controller.get_all_paragraphs_from_category(
+                    selected_category
+                )
                 if not paragraphs:
                     st.warning("No paragraphs found for the selected category.")
                 else:
@@ -125,40 +141,61 @@ elif page == "Dataset Exploration":
                     for i, item in enumerate(paragraphs):
                         with st.expander(f"📄 Paragraph {i+1}", expanded=False):
                             st.markdown(item["content"])
-                            if st.button(f"❌ Delete Paragraph {i+1} (not working)", key=f"delete_{i}"):
-                                controller.delete_paragraph(selected_category, item["id"])
-                                st.success(f"🗑️ Paragraph {i+1} deleted. Please refresh to see changes.")
 
 
 # ==============================
-# 🔍 Semantic Search
+# 💬 Chat With Your Knowledge (Chatbot)
 # ==============================
-elif page == "Semantic Search":
-    st.title("🔍 Ask a Question")
+elif page == "Chat With Your Knowledge":
+    st.title("💬 Chat with Your Knowledge")
 
     available_categories = controller.get_all_categories()
     if not available_categories:
-        st.info("ℹ️ No pages ingested yet. Please ingest a Wikipedia page first.")
+        st.info("ℹ️ No categories ingested yet. Please ingest some data first.")
     else:
-        category = st.selectbox("Select a page:", options=available_categories)
-        query = st.text_input("Enter your question")
+        category = st.selectbox(
+            "Select a page to chat with:", options=available_categories
+        )
 
-        if query:
-            st.write("🔍 Searching and generating answer...")
-            context = controller.get_similar_documents(category, query, 10)
+        # Initialize chat history in session
+        if "chat_history" not in st.session_state:
+            st.session_state.chat_history = []
 
-            with st.spinner("🧠 GPT-4o is generating the answer..."):
+        # Display previous chat messages
+        for msg in st.session_state.chat_history:
+            with st.chat_message(msg["role"]):
+                st.markdown(msg["content"])
+
+        # Chat input box
+        user_input = st.chat_input("Ask a question about the selected page...")
+        if user_input:
+            st.chat_message("user").markdown(user_input)
+            st.session_state.chat_history.append(
+                {"role": "user", "content": user_input}
+            )
+
+            # Semantic search
+            with st.spinner("🔍 Retrieving relevant knowledge..."):
+                context = controller.get_similar_documents(category, user_input, 10)
+
+            # Generate answer
+            with st.spinner("🧠 GPT-4o is thinking..."):
                 answer = llm_controller.answer_question_based_on_excerpts(
-                    query, context, lang_prefix
+                    user_input, context, lang_prefix
                 )
 
-            st.markdown("### 💬 Final Answer")
-            st.success(answer)
+            # Display bot response
+            st.chat_message("assistant").markdown(answer)
+            st.session_state.chat_history.append(
+                {"role": "assistant", "content": answer}
+            )
 
+            # Optional: display excerpts in a toggle box
             with st.expander("📚 View source excerpts"):
                 for i, excerpt in enumerate(context):
                     st.markdown(f"**Excerpt {i+1}:**")
                     st.markdown(excerpt)
+
 
 # ==============================
 # 🧠 Generate Pub Quiz
@@ -168,7 +205,7 @@ elif page == "Generate Pub Quiz":
 
     available_categories = controller.get_all_categories()
     if not available_categories:
-        st.info("ℹ️ No pages ingested yet. Please ingest a Wikipedia page first.")
+        st.info("ℹ️ No categories ingested yet. Please ingest a some data first.")
     else:
         category = st.selectbox("Select a page:", options=available_categories)
         number_of_questions = st.number_input(
