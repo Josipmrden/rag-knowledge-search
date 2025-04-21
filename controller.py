@@ -107,8 +107,7 @@ class StorageController:
 
 class LLMController:
     def __init__(self):
-        # self._client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        self._client = OpenAI(api_key="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")
+        self._client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self._storage = get_ks_storage()
 
     def answer_question_based_on_excerpts(
