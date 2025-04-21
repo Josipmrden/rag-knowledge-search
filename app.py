@@ -12,13 +12,16 @@ if not current_user_id:
             "You have been granted a random ID. This ID does not contain any data. Please add your already present identity in the sidebar if you have one!"
         )
 
+
 @st.cache_resource
 def get_controller():
     return StorageController()
 
+
 @st.cache_resource
 def get_llm_controller():
     return LLMController()
+
 
 controller = get_controller()
 llm_controller = get_llm_controller()
@@ -126,6 +129,9 @@ elif page == "Ingest by Yourself":
         new_label = st.text_input(
             "Or enter a new label (will override above if filled):"
         )
+        ingestion_mode = st.radio(
+            "Ingestion mode", options=["Ingest from scratch", "Update dataset"], index=0
+        )
 
         submitted = st.form_submit_button("📥 Ingest Text")
 
@@ -139,15 +145,22 @@ elif page == "Ingest by Yourself":
                 if not target_label:
                     st.warning("⚠️ Please select or enter a category name.")
                 else:
+                    mode = (
+                        "replace"
+                        if ingestion_mode == "Ingest from scratch"
+                        else "append"
+                    )
                     with st.spinner("Embedding and saving..."):
                         count = controller.ingest_custom_text(
                             user_id,
                             target_label,
                             user_paragraph,
                             lang_prefix=lang_prefix,
-                            mode="append",
+                            mode=mode,
                         )
-                        st.success(f"✅ Ingested {count} paragraph into '{target_label}'.")
+                        st.success(
+                            f"✅ Ingested {count} paragraph into '{target_label}'."
+                        )
 
 # ==============================
 # 📊 Dataset Exploration
@@ -185,10 +198,14 @@ elif page == "Export Dataset":
     if not available_categories:
         st.info("ℹ️ No categories ingested yet. Please ingest something first.")
     else:
-        selected_category = st.selectbox("Select a category to export:", options=available_categories)
+        selected_category = st.selectbox(
+            "Select a category to export:", options=available_categories
+        )
         if st.button("📤 Export as .txt file"):
             with st.spinner(f"Exporting paragraphs from '{selected_category}'..."):
-                paragraphs = controller.get_all_paragraphs_from_category(user_id, selected_category)
+                paragraphs = controller.get_all_paragraphs_from_category(
+                    user_id, selected_category
+                )
                 if not paragraphs:
                     st.warning("No paragraphs found in the selected category.")
                 else:
@@ -197,7 +214,7 @@ elif page == "Export Dataset":
                         label="📥 Download Text File",
                         data=joined_text,
                         file_name=f"{selected_category}.txt",
-                        mime="text/plain"
+                        mime="text/plain",
                     )
 
 # ==============================
