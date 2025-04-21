@@ -7,7 +7,8 @@ llm_controller = LLMController()
 # --- Sidebar Navigation ---
 st.sidebar.title("📂 Navigation")
 page = st.sidebar.radio(
-    "Go to", ["Ingest Wikipedia", "Semantic Search", "Generate Pub Quiz"]
+    "Go to",
+    ["Ingest Wikipedia", "Ingest by Yourself", "Dataset Exploration", "Semantic Search", "Generate Pub Quiz"],
 )
 
 
@@ -28,7 +29,10 @@ if page == "Ingest Wikipedia":
     st.title("📥 Ingest Wikipedia Page into Memgraph")
 
     with st.form("ingest_form"):
-        page_title = st.text_input("Enter Wikipedia page title", value="")
+        category = st.text_input("Enter Wikipedia page title", value="")
+        save_as_category = st.text_input(
+            "Save as category (empty will save with same name)", value=""
+        )
         ingestion_mode = st.radio(
             "Ingestion mode", options=["Ingest from scratch", "Update dataset"], index=0
         )
@@ -48,7 +52,8 @@ if page == "Ingest Wikipedia":
                 method = "detailed" if has_section_filter else "quick"
                 section = section_filter
                 count = controller.ingest_wikipedia(
-                    page_title,
+                    category,
+                    save_as_category,
                     lang_prefix,
                     mode=mode,
                     method=method,
@@ -57,12 +62,73 @@ if page == "Ingest Wikipedia":
                 if count is not None:
                     verb = "Replaced" if mode == "replace" else "Appended"
                     st.success(
-                        f"✅ {verb} {count} paragraphs from '{page_title}' into Memgraph."
+                        f"✅ {verb} {count} paragraphs from '{category}' into storage."
                     )
                 else:
                     st.success(
-                        f"✅ Paragraphs from '{page_title}' already exist in Memgraph!"
+                        f"✅ Paragraphs from '{category}' already exist in storage!"
                     )
+                    
+# ==============================
+# ✍️ Ingest by Yourself
+# ==============================
+elif page == "Ingest by Yourself":
+    st.title("✍️ Ingest a Custom Paragraph")
+
+    available_categories = controller.get_all_categories()
+
+    with st.form("custom_ingest_form"):
+        st.markdown("#### Paste your content")
+        user_paragraph = st.text_area("Text to ingest", height=300)
+
+        st.markdown("#### Choose where to save it")
+        existing_label = st.selectbox("Save to existing label:", options=available_categories + [""])
+        new_label = st.text_input("Or enter a new label (will override above if filled):")
+
+        submitted = st.form_submit_button("📥 Ingest Text")
+
+        if submitted:
+            if not user_paragraph.strip():
+                st.warning("⚠️ Please paste some text.")
+            else:
+                target_label = new_label.strip() if new_label.strip() else existing_label
+                if not target_label:
+                    st.warning("⚠️ Please select or enter a category name.")
+                else:
+                    with st.spinner("Embedding and saving..."):
+                        count = controller.ingest_custom_text(
+                            target_label,
+                            user_paragraph,
+                            lang_prefix=lang_prefix,
+                            mode="append"
+                        )
+                        st.success(f"✅ Ingested 1 paragraph into '{target_label}'.")
+                        
+# ==============================
+# 📊 Dataset Exploration
+# ==============================
+elif page == "Dataset Exploration":
+    st.title("📊 Explore Your Ingested Dataset")
+
+    available_categories = controller.get_all_categories()
+    if not available_categories:
+        st.info("ℹ️ No datasets found. Please ingest something first.")
+    else:
+        selected_category = st.selectbox("Select a category to explore:", options=available_categories)
+        if st.button("🔍 Retrieve Dataset"):
+            with st.spinner(f"Retrieving paragraphs from '{selected_category}'..."):
+                paragraphs = controller.get_all_paragraphs_from_category(selected_category)
+                if not paragraphs:
+                    st.warning("No paragraphs found for the selected category.")
+                else:
+                    st.success(f"✅ Found {len(paragraphs)} paragraphs.")
+                    for i, item in enumerate(paragraphs):
+                        with st.expander(f"📄 Paragraph {i+1}", expanded=False):
+                            st.markdown(item["content"])
+                            if st.button(f"❌ Delete Paragraph {i+1} (not working)", key=f"delete_{i}"):
+                                controller.delete_paragraph(selected_category, item["id"])
+                                st.success(f"🗑️ Paragraph {i+1} deleted. Please refresh to see changes.")
+
 
 # ==============================
 # 🔍 Semantic Search

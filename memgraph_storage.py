@@ -64,13 +64,6 @@ class MemgraphStorage(Storage):
             self._memgraph.execute("CREATE INDEX ON :All")
 
         paragraph_nodes = []
-        exists = list(self._memgraph.execute_and_fetch(f"MATCH (n:{category}) RETURN count(n) as cnt"))[0]["cnt"]
-        if exists > 0:
-            # Already exists
-            return None
-
-        index_name = f"{category.lower()}_vector_index"
-
         for idx, (text, vector) in enumerate(zip(paragraphs, embeddings)):
             para_id = str(uuid.uuid4())
             vector_list = vector.tolist()
@@ -112,6 +105,7 @@ class MemgraphStorage(Storage):
         dimension = len(embeddings[0])
         capacity = len(embeddings) * 2
 
+        index_name = f"{category.lower()}_vector_index"
         self._memgraph.execute(f"""
             CREATE VECTOR INDEX {index_name} ON :{category}(vector)
             WITH CONFIG {{
@@ -122,3 +116,22 @@ class MemgraphStorage(Storage):
         """)
 
         return len(paragraphs)
+
+    def get_all_paragraphs(self, category: str) -> List[str]:
+        results = self._memgraph.execute_and_fetch(
+            f"""
+            MATCH (p:{category})
+            RETURN p.content AS content, p.id as id
+            ORDER BY p.index ASC
+            """
+        )
+        return [{"content": record["content"], "id": record[id]} for record in results]
+
+    def delete_paragraph(self, category: str, paragraph_id: str):
+        self._memgraph.execute(
+            """
+            MATCH (p {id: $id})
+            DETACH DELETE p
+            """,
+            {"id": paragraph_id}
+        )

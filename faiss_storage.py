@@ -101,3 +101,47 @@ class FaissStorage(Storage):
 
         sampled = random.sample(metadata, number_of_questions)
         return [{"content": entry["content"]} for entry in sampled]
+    
+    def get_all_paragraphs(self, category: str) -> list[str]:
+        metadata_path = self._get_metadata_path(category)
+        if not os.path.exists(metadata_path):
+            return []
+        with open(metadata_path, "r") as f:
+            metadata = json.load(f)
+        return [{"content": entry["content"], "id": entry["id"]} for entry in metadata]
+
+    def delete_paragraph(self, category: str, paragraph_id: str):
+        index_path = self._get_index_path(category)
+        metadata_path = self._get_metadata_path(category)
+
+        if not os.path.exists(index_path) or not os.path.exists(metadata_path):
+            print(f"❌ No index or metadata found for category '{category}'")
+            return
+
+        # Load metadata
+        with open(metadata_path, "r") as f:
+            metadata = json.load(f)
+
+        # Find and remove the target entry
+        updated_metadata = [entry for entry in metadata if entry["id"] != paragraph_id]
+
+        if len(updated_metadata) == len(metadata):
+            print(f"⚠️ Paragraph ID '{paragraph_id}' not found in '{category}'.")
+            return
+
+        # Recompute embeddings for updated metadata
+        contents = [entry["content"] for entry in updated_metadata]
+        if contents:
+            embeddings = self.model.encode(contents, convert_to_numpy=True).astype("float32")
+            index = faiss.IndexFlatL2(embeddings.shape[1])
+            index.add(embeddings)
+            faiss.write_index(index, index_path)
+        else:
+            # If no content remains, remove index file
+            os.remove(index_path)
+
+        # Write back updated metadata
+        with open(metadata_path, "w") as f:
+            json.dump(updated_metadata, f)
+
+        print(f"✅ Paragraph '{paragraph_id}' deleted from '{category}'")

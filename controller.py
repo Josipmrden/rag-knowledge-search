@@ -18,7 +18,7 @@ def get_ks_storage():
         return MemgraphStorage()
     if storage == "faiss":
         return FaissStorage()
-    raise Exception("Unknown storage!")
+    return FaissStorage()
 
 
 def sanitize_category(category: str) -> str:
@@ -45,9 +45,16 @@ class StorageController:
         return self._storage.get_all_categories()
 
     def ingest_wikipedia(
-        self, category, lang_prefix, mode="replace", method="quick", section_filter=None
+        self, category, save_as_category, lang_prefix, mode="replace", method="quick", section_filter=None
     ):
+        if len(category) == 0:
+            return 0
         category = sanitize_category(category)
+
+        if len(save_as_category) == 0:
+            save_as_category = category
+        save_as_category = sanitize_category(save_as_category)
+        
         if method == "quick":
             paragraphs, embeddings = (
                 self._wikipedia_processor.process_wikipedia_documents(
@@ -66,7 +73,7 @@ class StorageController:
             return 0
 
         return self._storage.ingest_paragraphs(
-            category, paragraphs, embeddings, lang_prefix, mode
+            save_as_category, paragraphs, embeddings, lang_prefix, mode
         )
 
     def get_similar_documents(self, category: str, question: str, n: int) -> List[str]:
@@ -81,11 +88,27 @@ class StorageController:
     def get_paragraph_ids(self, category: str) -> List[int]:
         category = sanitize_category(category)
         return self._storage.get_paragraph_ids(category)
+    
+    def get_all_paragraphs_from_category(self, category: str):
+        category = sanitize_category(category)
+        return self._storage.get_all_paragraphs(category)
+
+    
+    def ingest_custom_text(self, category, paragraph, lang_prefix="custom", mode="append"):
+        category = sanitize_category(category)
+        paragraphs = [paragraph.strip()]
+        embeddings = self._embedding_generator.get_embeddings(paragraphs)
+        return self._storage.ingest_paragraphs(category, paragraphs, embeddings, lang_prefix, mode)
+    
+    def delete_paragraph(self, category: str, paragraph_id: str):
+        category = sanitize_category(category)
+        return self._storage.delete_paragraph(category, paragraph_id)
 
 
 class LLMController:
     def __init__(self):
-        self._client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        # self._client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        self._client = OpenAI(api_key="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")
         self._storage = get_ks_storage()
 
     def answer_question_based_on_excerpts(
