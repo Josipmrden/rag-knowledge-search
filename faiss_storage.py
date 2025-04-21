@@ -7,15 +7,12 @@ from typing import List
 from storage import Storage
 from sentence_transformers import SentenceTransformer
 import random
-import os
 
 class FaissStorage(Storage):
     def __init__(self, index_dir="faiss_index"):
         super().__init__()
         self.index_dir = index_dir
         os.makedirs(index_dir, exist_ok=True)
-        print("Files in working dir:", os.listdir("."))
-        print("Files in local_model/:", os.listdir("local_model"))
         # self._model = SentenceTransformer("all-mpnet-base-v2", device="cpu")
         # self._model = SentenceTransformer("all-MiniLM-L6-v2", device="cpu")
         self._model = SentenceTransformer("local_model/", device="cpu")
