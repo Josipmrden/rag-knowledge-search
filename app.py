@@ -24,6 +24,7 @@ page = st.sidebar.radio(
         "Ingest Wikipedia",
         "Ingest by Yourself",
         "Dataset Exploration",
+        "Export Dataset",
         "Chat With Your Knowledge",
         "Generate Pub Quiz",
     ],
@@ -137,7 +138,7 @@ elif page == "Ingest by Yourself":
                             lang_prefix=lang_prefix,
                             mode="append",
                         )
-                        st.success(f"✅ Ingested 1 paragraph into '{target_label}'.")
+                        st.success(f"✅ Ingested {count} paragraph into '{target_label}'.")
 
 # ==============================
 # 📊 Dataset Exploration
@@ -165,6 +166,30 @@ elif page == "Dataset Exploration":
                         with st.expander(f"📄 Paragraph {i+1}", expanded=False):
                             st.markdown(item["content"])
 
+# ==============================
+# 📦 Export Dataset
+# ==============================
+elif page == "Export Dataset":
+    st.title("📦 Export a Dataset")
+
+    available_categories = controller.get_all_categories(user_id)
+    if not available_categories:
+        st.info("ℹ️ No categories ingested yet. Please ingest something first.")
+    else:
+        selected_category = st.selectbox("Select a category to export:", options=available_categories)
+        if st.button("📤 Export as .txt file"):
+            with st.spinner(f"Exporting paragraphs from '{selected_category}'..."):
+                paragraphs = controller.get_all_paragraphs_from_category(user_id, selected_category)
+                if not paragraphs:
+                    st.warning("No paragraphs found in the selected category.")
+                else:
+                    joined_text = "\n\n".join(p["content"] for p in paragraphs)
+                    st.download_button(
+                        label="📥 Download Text File",
+                        data=joined_text,
+                        file_name=f"{selected_category}.txt",
+                        mime="text/plain"
+                    )
 
 # ==============================
 # 💬 Chat With Your Knowledge (Chatbot)

@@ -108,12 +108,13 @@ class StorageController:
     def get_all_paragraphs_from_category(self, user_id: str, category: str):
         category = sanitize_category(category)
         return self._storage.get_all_paragraphs(user_id, category)
-
+    
     def ingest_custom_text(
         self, user_id: str, category, paragraph, lang_prefix="custom", mode="append"
     ):
         category = sanitize_category(category)
-        paragraphs = [paragraph.strip()]
+        cleaned_text = re.sub(r"\n{2,}", "\n\n", paragraph.strip())
+        paragraphs = [p.strip() for p in cleaned_text.split("\n\n") if len(p.strip()) > 0]
         embeddings = self._embedding_generator.get_embeddings(paragraphs)
         return self._storage.ingest_paragraphs(
             user_id, category, paragraphs, embeddings, lang_prefix, mode
