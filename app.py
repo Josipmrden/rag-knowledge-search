@@ -12,8 +12,17 @@ if not current_user_id:
             "You have been granted a random ID. This ID does not contain any data. Please add your already present identity in the sidebar if you have one!"
         )
 
-controller = StorageController()
-llm_controller = LLMController()
+@st.cache_resource
+def get_controller():
+    return StorageController()
+
+@st.cache_resource
+def get_llm_controller():
+    return LLMController()
+
+controller = get_controller()
+llm_controller = get_llm_controller()
+
 controller.initialize_user(current_user_id)
 
 # --- Sidebar Navigation ---
