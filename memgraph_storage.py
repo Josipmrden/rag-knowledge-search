@@ -11,8 +11,10 @@ class MemgraphStorage(Storage):
         self._memgraph = Memgraph()
         self._memgraph.execute("CREATE INDEX ON :All")
 
-        
-    def get_all_categories(self):
+    def initialize_user(self, user_id: str):
+        pass
+    
+    def get_all_categories(self, user_id: str):
         results = self._memgraph.execute_and_fetch("""
             MATCH (n) 
             WITH labels(n) AS l
@@ -22,10 +24,10 @@ class MemgraphStorage(Storage):
         )
         return [record["label"] for record in results]
     
-    def get_similar_documents(self, label: str, query_vector: str, n: int):
+    def get_similar_documents(self, user_id: str, category: str, query_vector: str, n: int):
         results = self._memgraph.execute_and_fetch(
             f"""
-            CALL vector_search.search("{label.lower()}_vector_index", {n}, $query_vector)
+            CALL vector_search.search("{category.lower()}_vector_index", {n}, $query_vector)
             YIELD node, similarity
             RETURN node.content AS content, similarity
             """,
@@ -34,11 +36,11 @@ class MemgraphStorage(Storage):
         
         return results
 
-    def get_paragraph_ids(self, category: str) -> List[int]:
+    def get_paragraph_ids(self, user_id: str, category: str) -> List[int]:
         ids = list(self._memgraph.execute_and_fetch(f"MATCH (p:{category}) RETURN p.id AS id"))
         return [x["id"] for x in ids]
     
-    def sample_n_connected_paragraphs(self, category: str, number_of_questions: int):
+    def sample_n_connected_paragraphs(self, user_id: str, category: str, number_of_questions: int):
         ids = self.get_paragraph_ids(category)
         if not len(ids):
             return None
@@ -57,7 +59,7 @@ class MemgraphStorage(Storage):
         )
         return results
     
-    def ingest_paragraphs(self, category: str, paragraphs: List, embeddings: List, lang_prefix: str, mode: str):
+    def ingest_paragraphs(self, user_id: str, category: str, paragraphs: List, embeddings: List, lang_prefix: str, mode: str):
         if mode == "replace":
             self._memgraph.execute("STORAGE MODE IN_MEMORY_ANALYTICAL")
             self._memgraph.execute("DROP GRAPH")
@@ -117,7 +119,7 @@ class MemgraphStorage(Storage):
 
         return len(paragraphs)
 
-    def get_all_paragraphs(self, category: str) -> List[str]:
+    def get_all_paragraphs(self, user_id: str, category: str) -> List[str]:
         results = self._memgraph.execute_and_fetch(
             f"""
             MATCH (p:{category})
@@ -127,7 +129,7 @@ class MemgraphStorage(Storage):
         )
         return [{"content": record["content"], "id": record[id]} for record in results]
 
-    def delete_paragraph(self, category: str, paragraph_id: str):
+    def delete_paragraph(self, user_id: str, category: str, paragraph_id: str):
         self._memgraph.execute(
             """
             MATCH (p {id: $id})
