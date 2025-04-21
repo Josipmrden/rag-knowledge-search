@@ -13,7 +13,7 @@ class FaissStorage(Storage):
         super().__init__()
         self.index_dir = index_dir
         os.makedirs(index_dir, exist_ok=True)
-        self.model = SentenceTransformer("all-mpnet-base-v2")
+        self.model = SentenceTransformer("all-mpnet-base-v2", device="cpu")
 
     def _get_index_path(self, category):
         return os.path.join(self.index_dir, f"{category}.index")
