@@ -3,8 +3,14 @@ import uuid
 from controller import StorageController, LLMController
 
 DEFAULT_ID_KEY = "user_id"
-current_user_id = st.query_params.get(DEFAULT_ID_KEY, str(uuid.uuid4()))
-st.query_params.update({DEFAULT_ID_KEY: current_user_id})
+current_user_id = st.query_params.get(DEFAULT_ID_KEY, None)
+if not current_user_id:
+    current_user_id = st.query_params.get(DEFAULT_ID_KEY, str(uuid.uuid4()))
+    st.query_params.update({DEFAULT_ID_KEY: current_user_id})
+    with st.expander("ℹ️ Important Info", expanded=True):
+        st.markdown(
+            "You have been granted a random ID. This ID does not contain any data. Please add your already present identity in the sidebar if you have one!"
+        )
 
 controller = StorageController()
 llm_controller = LLMController()
