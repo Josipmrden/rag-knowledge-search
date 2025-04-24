@@ -125,10 +125,8 @@ class FaissStorage(Storage):
         with open(metadata_path, "r") as f:
             metadata = json.load(f)
 
-        if len(metadata) < number_of_questions:
-            return None
-
-        sampled = random.sample(metadata, number_of_questions)
+        sample_size = min(len(metadata), number_of_questions)
+        sampled = random.sample(metadata, sample_size)
         return [{"content": entry["content"]} for entry in sampled]
 
     def get_all_paragraphs(self, user_id: str, category: str) -> list[str]:
